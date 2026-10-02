@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include <spdlog/spdlog.h>
 #include "ship/utils/StringHelper.h"
 #include "ship/debug/CrashHandler.h"
@@ -65,7 +67,11 @@ void CrashHandler::AppendLine(const char* str) {
  * @param buffer
  */
 void CrashHandler::PrintCommon() {
-    if (mCallback != nullptr) {
+    // The game-specific callback walks live engine structures, which may be
+    // the structures that faulted. Unattended runs prefer preserving and
+    // flushing the primary stack trace over risking a secondary fault while
+    // enriching it.
+    if (mCallback != nullptr && std::getenv("SHIP_DISABLE_CRASH_DIALOG") == nullptr) {
         mCallback(mOutBuffer.get(), &mOutBuffersize);
     }
 
@@ -138,6 +144,7 @@ void CrashHandler::PrintRegisters(ucontext_t* ctx) {
 }
 
 static void ErrorHandler(int sig, siginfo_t* sigInfo, void* data) {
+    const bool unattended = std::getenv("SHIP_DISABLE_CRASH_DIALOG") != nullptr;
     std::shared_ptr<CrashHandler> crashHandler = Context::GetRawInstance()->GetCrashHandler();
     char intToCharBuffer[16];
 
@@ -189,16 +196,29 @@ static void ErrorHandler(int sig, siginfo_t* sigInfo, void* data) {
         snprintf(intToCharBuffer, sizeof(intToCharBuffer), "%i ", (int)i);
         WRITE_VAR_LINE(crashHandler, intToCharBuffer, functionName.c_str());
     }
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, (Context::GetRawInstance()->GetName() + " has crashed").c_str(),
-                             (Context::GetRawInstance()->GetName() +
-                              " has crashed. Please upload the logs to the support channel in discord.")
-                                 .c_str(),
-                             nullptr);
+    // Interactive crash dialogs block unattended test processes before the
+    // report is flushed. CI and local automation can opt out while normal
+    // game launches retain the existing dialog.
+    if (!unattended) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                 (Context::GetRawInstance()->GetName() + " has crashed").c_str(),
+                                 (Context::GetRawInstance()->GetName() +
+                                  " has crashed. Please upload the logs to the support channel in discord.")
+                                     .c_str(),
+                                 nullptr);
+    }
     free(symbols);
     crashHandler->PrintCommon();
 
     Context::GetRawInstance()->GetLogger()->flush();
     spdlog::shutdown();
+    if (unattended) {
+        // Static Context destruction logs through the logger that was just
+        // shut down. Automation has already flushed everything useful, so
+        // bypass process-wide destructors just as successful smoke completion
+        // does.
+        std::_Exit(EXIT_FAILURE);
+    }
     exit(1);
 }
 
