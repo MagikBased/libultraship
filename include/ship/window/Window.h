@@ -265,6 +265,10 @@ class Window {
     std::shared_ptr<MouseStateManager> GetMouseStateManager();
 
   protected:
+    /** @brief Releases ImGui and its platform backend before the concrete
+     *  window backend is destroyed. Safe to call more than once. */
+    void ShutdownGui();
+
     /**
      * @brief Records the active graphics backend. Called by subclass constructors.
      * @param backend The backend ID in use.
@@ -285,6 +289,7 @@ class Window {
 
   private:
     std::shared_ptr<Gui> mGui;
+    bool mGuiShutdown = false;
     int32_t mLastScancode = -1;
     int32_t mWindowBackend;
     std::shared_ptr<MouseStateManager> mMouseStateManager;

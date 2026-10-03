@@ -29,8 +29,16 @@ Window::Window() : Window(std::vector<std::shared_ptr<GuiWindow>>()) {
 }
 
 Window::~Window() {
-    mGui->ShutDownImGui(this);
+    ShutdownGui();
     SPDLOG_DEBUG("destruct window");
+}
+
+void Window::ShutdownGui() {
+    if (mGuiShutdown || mGui == nullptr) {
+        return;
+    }
+    mGui->ShutDownImGui(this);
+    mGuiShutdown = true;
 }
 
 void Window::ToggleFullscreen() {

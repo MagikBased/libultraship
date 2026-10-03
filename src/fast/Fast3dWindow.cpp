@@ -52,6 +52,11 @@ Fast3dWindow::Fast3dWindow() : Fast3dWindow(std::vector<std::shared_ptr<Ship::Gu
 
 Fast3dWindow::~Fast3dWindow() {
     SPDLOG_DEBUG("destruct fast3dwindow");
+    // ImGui's SDL platform backend owns SDL gamepad handles. Release those
+    // before Interpreter::Destroy tears down the window backend and calls
+    // SDL_Quit; the base Window destructor's idempotent call then becomes a
+    // no-op.
+    ShutdownGui();
     mInterpreter->Destroy();
     delete mRenderingApi;
     delete mWindowManagerApi;
