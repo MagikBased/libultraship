@@ -52,13 +52,37 @@ endif()
 
 #=================== STB ===================
 set(STB_DIR ${CMAKE_BINARY_DIR}/_deps/stb)
-file(DOWNLOAD "https://github.com/nothings/stb/raw/0bc88af4de5fb022db643c2d8e549a0927749354/stb_image.h" "${STB_DIR}/stb_image.h")
+set(STB_HEADER "${STB_DIR}/stb_image.h")
+set(STB_HEADER_DOWNLOAD "${STB_HEADER}.download")
+file(DOWNLOAD
+    "https://github.com/nothings/stb/raw/0bc88af4de5fb022db643c2d8e549a0927749354/stb_image.h"
+    "${STB_HEADER_DOWNLOAD}"
+    STATUS STB_DOWNLOAD_STATUS
+)
+list(GET STB_DOWNLOAD_STATUS 0 STB_DOWNLOAD_CODE)
+if(STB_DOWNLOAD_CODE EQUAL 0 AND EXISTS "${STB_HEADER_DOWNLOAD}")
+    file(SIZE "${STB_HEADER_DOWNLOAD}" STB_DOWNLOAD_SIZE)
+else()
+    set(STB_DOWNLOAD_SIZE 0)
+endif()
+if(STB_DOWNLOAD_SIZE GREATER 0)
+    file(RENAME "${STB_HEADER_DOWNLOAD}" "${STB_HEADER}")
+elseif(EXISTS "${STB_HEADER}")
+    file(SIZE "${STB_HEADER}" STB_EXISTING_SIZE)
+    if(STB_EXISTING_SIZE EQUAL 0)
+        message(FATAL_ERROR "Could not download stb_image.h and the cached copy is empty: ${STB_DOWNLOAD_STATUS}")
+    endif()
+    file(REMOVE "${STB_HEADER_DOWNLOAD}")
+    message(WARNING "Could not refresh stb_image.h; using the cached copy: ${STB_DOWNLOAD_STATUS}")
+else()
+    message(FATAL_ERROR "Could not download stb_image.h and no cached copy exists: ${STB_DOWNLOAD_STATUS}")
+endif()
 file(WRITE "${STB_DIR}/stb_impl.c" "#define STB_IMAGE_IMPLEMENTATION\n#include \"stb_image.h\"")
 
 add_library(stb STATIC)
 
 target_sources(stb PRIVATE
-    ${STB_DIR}/stb_image.h
+    ${STB_HEADER}
     ${STB_DIR}/stb_impl.c
 )
 

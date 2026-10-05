@@ -41,7 +41,8 @@ std::string LibraryLoader::GenerateTempFile() {
         throw std::runtime_error("Failed to create temp file: " + std::to_string(GetLastError()));
     }
 
-    return std::string(tempFileName);
+    mTempFile = tempFileName;
+    return mTempFile;
 
 #elif defined(__APPLE__) || defined(__linux__)
     char pathTemplate[] = "/tmp/mod_lib_XXXXXX";
@@ -58,7 +59,8 @@ std::string LibraryLoader::GenerateTempFile() {
     // mkstemp creates a physical file on the hard drive.
     // We can safely close the FD now; the file will remain on disk for you to open later.
     close(fd);
-    return std::string(pathTemplate);
+    mTempFile = pathTemplate;
+    return mTempFile;
 
 #else
 #error "Unsupported Operating System"
